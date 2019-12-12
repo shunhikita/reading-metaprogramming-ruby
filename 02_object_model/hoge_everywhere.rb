@@ -4,7 +4,7 @@
 # それらのhogeメソッドは、全て"hoge"という文字列を返す
 # - String
 # - Integer
-# - Number
+# - Numeric
 # - Class
 # - Hash
 # - TrueClass
