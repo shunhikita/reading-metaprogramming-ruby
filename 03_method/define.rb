@@ -44,7 +44,7 @@ module OriginalAccessor
         instance_variable_set("@#{name}", val)
 
         if [TrueClass, FalseClass].include?(val.class)
-          self.define_singleton_method "#{name}?" do
+          define_singleton_method "#{name}?" do
             public_send("#{name}")
           end
         end
