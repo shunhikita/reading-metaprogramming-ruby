@@ -16,7 +16,7 @@ end
 class A2
   def initialize(arr)
     arr.each do |val|
-      self.class.define_method "hoge_#{val}" do |repeat_size = nil|
+      define_singleton_method "hoge_#{val}" do |repeat_size = nil|
         return dev_team if repeat_size.nil?
 
         "hoge_#{val}" * repeat_size
@@ -47,6 +47,8 @@ module OriginalAccessor
           define_singleton_method "#{name}?" do
             public_send("#{name}")
           end
+        elsif respond_to?("#{name}?")
+          remove_method "#{name}?"
         end
       end
     end
