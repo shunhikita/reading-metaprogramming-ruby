@@ -5,6 +5,18 @@ TryOver3 = Module.new
 # - `test_` から始まるインスタンスメソッドが実行された場合、このクラスは `run_test` メソッドを実行する
 # - `test_` メソッドがこのクラスに実装されていなくても `test_` から始まるメッセージに応答することができる
 # - TryOver3::A1 には `test_` から始まるインスタンスメソッドが定義されていない
+class TryOver3::A1
+  def run_test; end
+
+  private
+  def method_missing(name, *args)
+    if name.to_s.start_with?("test_")
+      return run_test
+    end
+
+    super(name, args)
+  end
+end
 
 
 # Q2
@@ -18,6 +30,22 @@ class TryOver3::A2
   end
 end
 
+class TryOver3::A2Proxy
+  def initialize(source)
+    @source = source
+  end
+
+  private
+  attr_reader :source
+
+  def method_missing(name, *args)
+    source.public_send(name, *args)
+  end
+
+  def respond_to_missing?(name, include_private)
+    source.respond_to? name, include_private
+  end
+end
 
 # Q3
 # 前回 OriginalAccessor の my_attr_accessor で定義した getter/setter に boolean の値が入っている場合には #{name}? が定義されるようなモジュールを実装しました。
@@ -35,6 +63,8 @@ module TryOver3::OriginalAccessor2
           self.class.define_method "#{attr_sym}?" do
             @attr == true
           end
+        elsif respond_to?("#{attr_sym}?")
+          self.class.undef_method "#{attr_sym}?"
         end
         @attr = value
       end
@@ -48,7 +78,21 @@ end
 # TryOver3::A4.runners = [:Hoge]
 # TryOver3::A4::Hoge.run
 # # => "run Hoge"
+class TryOver3::A4
+  self.class.attr_accessor :runners
 
+  def self.const_missing(name)
+    if runners.include?(name)
+      return Class.new do
+        define_singleton_method :run do
+          "run #{name}"
+        end
+      end
+    else
+      super(name)
+    end
+  end
+end
 
 # Q5. チャレンジ問題！ 挑戦する方はテストの skip を外して挑戦してみてください。
 #
@@ -56,16 +100,27 @@ end
 module TryOver3::TaskHelper
   def self.included(klass)
     klass.define_singleton_method :task do |name, &task_block|
-      new_klass = Class.new do
-        define_singleton_method :run do
-          puts "start #{Time.now}"
-          block_return = task_block.call
-          puts "finish #{Time.now}"
-          block_return
+      define_singleton_method name.to_sym do
+        puts "start #{Time.now}"
+        block_return = task_block.call
+        puts "finish #{Time.now}"
+        block_return
+      end
+    end
+
+    klass.define_singleton_method :const_missing do |name|
+      method_name = name.to_s.gsub(/([A-Z]+)([A-Z][a-z])/, '\1_\2').gsub(/([a-z\d])([A-Z])/, '\1_\2').tr("-", "_").downcase.to_sym
+      base_klass_name = self.name
+      if singleton_methods.include?(method_name)
+        return Class.new do
+          define_singleton_method :run do
+            warn "Warning: #{base_klass_name}::#{name}.run is duplicated"
+            klass.public_send method_name
+          end
         end
       end
-      new_klass_name = name.to_s.split("_").map{ |w| w[0] = w[0].upcase; w }.join
-      const_set(new_klass_name, new_klass)
+
+      super name
     end
   end
 end
